@@ -1,55 +1,112 @@
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Function to teleport behind a random player
-local function teleportBehindRandomPlayer()
-    local randomPlayer = nil
+-- Variables
+local ultraInstinctActive = false
 
-    -- Get a random player who is not the local player
-    local otherPlayers = {}
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            table.insert(otherPlayers, player)
-        end
+-- Create UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = game:GetService("CoreGui")  -- Attach to CoreGui for local use
+screenGui.Name = "UltraInstinctGui"
+
+-- Main Button to open/close Ultra Instincts tab
+local mainButton = Instance.new("TextButton")
+mainButton.Parent = screenGui
+mainButton.Size = UDim2.new(0, 200, 0, 50)
+mainButton.Position = UDim2.new(0.5, -100, 0, 20)
+mainButton.BackgroundColor3 = Color3.new(1, 1, 1)
+mainButton.Text = "Open Ultra Instincts"
+mainButton.Font = Enum.Font.SourceSans
+mainButton.TextSize = 20
+mainButton.TextColor3 = Color3.new(0, 0, 0)
+
+-- Side Tab
+local sideTab = Instance.new("Frame")
+sideTab.Parent = screenGui
+sideTab.Size = UDim2.new(0, 200, 0, 100)
+sideTab.Position = UDim2.new(1, -220, 0.5, -50)
+sideTab.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+sideTab.Visible = false
+
+-- Toggle Switch Background (for Ultra Instincts)
+local toggleBackground = Instance.new("Frame")
+toggleBackground.Parent = sideTab
+toggleBackground.Size = UDim2.new(0, 50, 0, 25)
+toggleBackground.Position = UDim2.new(0.5, -25, 0.5, -12.5)
+toggleBackground.BackgroundColor3 = Color3.fromRGB(128, 80, 128)
+toggleBackground.BorderSizePixel = 0
+toggleBackground.Name = "ToggleBackground"
+
+-- Toggle Switch Circle
+local toggleCircle = Instance.new("Frame")
+toggleCircle.Parent = toggleBackground
+toggleCircle.Size = UDim2.new(0, 20, 0, 20)
+toggleCircle.Position = UDim2.new(0, 2.5, 0.5, -10)
+toggleCircle.BackgroundColor3 = Color3.new(1, 1, 1)
+toggleCircle.BorderSizePixel = 0
+toggleCircle.Name = "ToggleCircle"
+
+-- Function to update toggle switch position and color
+local function updateToggleSwitch()
+    if ultraInstinctActive then
+        toggleCircle.Position = UDim2.new(1, -22.5, 0.5, -10)
+        toggleBackground.BackgroundColor3 = Color3.fromRGB(60, 130, 60) -- Green for "On"
+    else
+        toggleCircle.Position = UDim2.new(0, 2.5, 0.5, -10)
+        toggleBackground.BackgroundColor3 = Color3.fromRGB(128, 80, 128) -- Purple for "Off"
     end
+end
 
-    if #otherPlayers > 0 then
-        randomPlayer = otherPlayers[math.random(1, #otherPlayers)]
+-- Open/Close Side Tab
+mainButton.MouseButton1Click:Connect(function()
+    sideTab.Visible = not sideTab.Visible
+end)
+
+-- Toggle Ultra Instinct when the switch is clicked
+toggleBackground.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        ultraInstinctActive = not ultraInstinctActive
+        updateToggleSwitch()
     end
+end)
 
-    -- If a random player is found, teleport behind them
-    if randomPlayer and randomPlayer.Character then
-        local randomPlayerRoot = randomPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        
-        if randomPlayerRoot and localRoot then
-            -- Position slightly behind the random player
-            local newPosition = randomPlayerRoot.Position - randomPlayerRoot.CFrame.LookVector * 5
-            localRoot.CFrame = CFrame.new(newPosition)
+-- Teleport Behind Attacker
+local function teleportBehindAttacker(attacker)
+    if not ultraInstinctActive or not attacker then return end
+
+    local attackerCharacter = attacker.Character
+    local localCharacter = LocalPlayer.Character
+    if attackerCharacter and localCharacter then
+        local attackerRoot = attackerCharacter:FindFirstChild("HumanoidRootPart")
+        local localRoot = localCharacter:FindFirstChild("HumanoidRootPart")
+        if attackerRoot and localRoot then
+            local positionBehind = attackerRoot.Position - attackerRoot.CFrame.LookVector * 5
+            localRoot.CFrame = CFrame.new(positionBehind)
         end
     end
 end
 
--- Monitor the player's health for changes
-local function monitorHealth()
+-- Monitor Hits to Detect When Player is Hit
+local function monitorHits()
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local humanoid = character:WaitForChild("Humanoid")
-
-    -- Keep track of the current health
     local currentHealth = humanoid.Health
 
     humanoid:GetPropertyChangedSignal("Health"):Connect(function()
         if humanoid.Health < currentHealth then
-            -- Teleport if health decreases (indicating a hit)
-            teleportBehindRandomPlayer()
+            -- Assume the attacker is the last player to deal damage
+            local lastAttacker = Players:GetPlayerFromCharacter(humanoid.LastHit) -- Replace with game-specific damage tracking logic
+            teleportBehindAttacker(lastAttacker)
         end
         currentHealth = humanoid.Health
     end)
 end
 
--- Set up the character and start monitoring health
-LocalPlayer.CharacterAdded:Connect(monitorHealth)
+-- Update the toggle UI to reflect the initial state
+updateToggleSwitch()
 
+-- Start monitoring hits when the character loads
+LocalPlayer.CharacterAdded:Connect(monitorHits)
 if LocalPlayer.Character then
-    monitorHealth()
+    monitorHits()
 end
