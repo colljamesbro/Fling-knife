@@ -1,0 +1,47 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Function to create a knife tool
+local function createKnife()
+    local knife = Instance.new("Tool")
+    knife.Name = "Fling Knife"
+    knife.RequiresHandle = true
+    knife.Parent = LocalPlayer.Backpack
+
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"
+    handle.Size = Vector3.new(1, 1, 4)
+    handle.BrickColor = BrickColor.new("Bright red")
+    handle.Material = Enum.Material.Metal
+    handle.Parent = knife
+
+    -- Attach a script to the knife to handle flinging
+    knife.Activated:Connect(function()
+        local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+        if not humanoidRootPart then return end
+
+        -- Find players within range
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local targetRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+                if targetRootPart then
+                    local distance = (humanoidRootPart.Position - targetRootPart.Position).Magnitude
+                    if distance <= 15 then  -- Adjust range as needed
+                        -- Apply a strong force to fling the player
+                        local flingForce = Instance.new("BodyVelocity")
+                        flingForce.Velocity = Vector3.new(0, 100, 0) + (targetRootPart.Position - humanoidRootPart.Position).unit * 50
+                        flingForce.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+                        flingForce.P = 5000
+                        flingForce.Parent = targetRootPart
+
+                        game:GetService("Debris"):AddItem(flingForce, 0.2)  -- Remove the force after 0.2 seconds
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Create the knife
+createKnife()
